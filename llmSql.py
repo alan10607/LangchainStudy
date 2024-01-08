@@ -2,7 +2,6 @@
 from langchain.llms import OpenAI
 from langchain.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
-import setApiKey
 
 db = SQLDatabase.from_uri("mysql+pymysql://root:root@127.0.0.1:3307/ag")
 llm = OpenAI(temperature=0)
