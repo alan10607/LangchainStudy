@@ -17,12 +17,13 @@ from linebot.v3.webhooks import (
     MessageEvent,
     TextMessageContent
 )
+from _lib.langchain_assistant import ChatAI
 
-configuration = Configuration(access_token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
 def lambda_handler(event, context):
-    @handler.add(MessageEvent, message = TextMessageContent)
+    @handler.add(MessageEvent, message=TextMessageContent)
     def handle_message(event):
         with ApiClient(configuration) as api_client:
             user_input = event.message.text
@@ -38,10 +39,9 @@ def lambda_handler(event, context):
                 )
             )
 
-
     # get X-Line-Signature header value
     signature = event["headers"]["x-line-signature"] # must in lower-case or it will 502
-        
+
     # get request body as text
     body = event["body"]
 
@@ -51,8 +51,8 @@ def lambda_handler(event, context):
         return {
             "statusCode": 502,
             "body": json.dumps("Invalid Line signature. Please check your channel access token/channel secret. Error: " + str(e))
-            }
+        }
     return {
         "statusCode": 200,
         "body": json.dumps("ok")
-        }
+    }
