@@ -1,9 +1,10 @@
 from dotenv import load_dotenv
 
-from langchain.agents import Tool, initialize_agent, load_tools
-from langchain.llms import OpenAI
-from langchain.agents import AgentType
-from langchain.memory import ConversationBufferMemory
+from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_openai import ChatOpenAI
+from langchain import hub
+from langchain.agents import create_openai_functions_agent
+from langchain.agents import Tool, AgentExecutor
 from langchain.utilities.serpapi import SerpAPIWrapper
 
 class ChatAI:
@@ -19,29 +20,28 @@ class ChatAI:
 
         tools = [
             Tool(
-                name="Google Search",
+                name="Google_Search",
                 func=search.run,
-                description="use this when you need to answer questions about current events or something you don't know"
+                description= (
+                    "Use this when you need to answer questions about current events or something you don't know."
+                )
             )
         ]
-        memory = ConversationBufferMemory(memory_key="chat_history")
-        llm = OpenAI(temperature=0, max_tokens=2048)
-
-        # load serpapi, https://python.langchain.com/docs/integrations/providers/serpapi
-        # tools = load_tools(["serpapi"])
-        # tools = load_tools(['serpapi', 'llm-math'], llm=llm)
-        # tools=load_tools(["serpapi","python_repl"])
-
-        # verbose=True will log the info
-        # self.agent = initialize_agent(tools, llm, agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION, verbose=True, memory=memory)
-        self.agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
-
-        print("Init AI done!")
+        # Get the prompt to use - you can modify this!
+        prompt = hub.pull("hwchase17/openai-functions-agent")
+        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+        # search = TavilySearchResults()
+        # tools = [search]
+        agent = create_openai_functions_agent(llm, tools, prompt)
+        self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+        
 
 
 
     def run(self, message):
-        return self.agent.run(message)
+        result = self.agent_executor.invoke({"input": message})
+        print(result)
+        return result["output"]
     
 
 if __name__ == "__main__":
