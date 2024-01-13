@@ -3,11 +3,27 @@ import time
 import json
 from openai import OpenAI
 from langchain.utilities.serpapi import SerpAPIWrapper
-from langchain.utilities.dalle_image_generator import DallEAPIWrapper
+# from langchain.utilities.dalle_image_generator import DallEAPIWrapper
 
+
+class DallE3Wrapper:
+    def __init__(self, client):
+        self.client = client
+
+    def run(self, query):
+        response = self.client.images.generate(
+            model="dall-e-3",
+            prompt=query,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+
+        image_url = response.data[0].url
+        return image_url
 
 class Functions:
-    def __init__(self):
+    def __init__(self, client):
         self.serpApi = SerpAPIWrapper(params = {
             "engine": "google",
             "google_domain": "google.com",
@@ -15,7 +31,8 @@ class Functions:
             "hl": "zh-TW", # language
         })
 
-        self.dalle3Api = DallEAPIWrapper()
+
+        self.dalle3Api = DallE3Wrapper(client=client)
 
     def google_search(self, query):
         return self.serpApi.run(query=query)
@@ -25,11 +42,11 @@ class Functions:
     
 class ChatAI:
     def __init__(self):
-        self.functions = Functions()
-        self.tool_functions = [self.functions.google_search, self.functions.dalle3_image_generator]
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=600)
         self.assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
         self.thread = self.client.beta.threads.create()
+        self.functions = Functions(self.client)
+        self.tool_functions = [self.functions.google_search, self.functions.dalle3_image_generator]
 
     def run(self, question):
         # 1. Prepare user question message
