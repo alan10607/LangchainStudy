@@ -3,24 +3,30 @@ import time
 import json
 from openai import OpenAI
 from langchain.utilities.serpapi import SerpAPIWrapper
+from langchain.utilities.dalle_image_generator import DallEAPIWrapper
 
 
 class Functions:
     def __init__(self):
-        self.search = SerpAPIWrapper(params = {
+        self.serpApi = SerpAPIWrapper(params = {
             "engine": "google",
             "google_domain": "google.com",
             "gl": "tw",    # location
             "hl": "zh-TW", # language
         })
 
+        self.dalle3Api = DallEAPIWrapper()
+
     def google_search(self, query):
-        return self.search.run(query=query)
+        return self.serpApi.run(query=query)
+    
+    def dalle3_image_generator(self, query):
+        return self.dalle3Api.run(query=query)
     
 class ChatAI:
     def __init__(self):
         self.functions = Functions()
-        self.tool_functions = [self.functions.google_search]
+        self.tool_functions = [self.functions.google_search, self.functions.dalle3_image_generator]
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=600)
         self.assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
         self.thread = self.client.beta.threads.create()
@@ -91,7 +97,7 @@ class ChatAI:
             function = self.find_matching_function(tool_call.function.name)
             output = self.execute_function(function, tool_call.function.arguments)
 
-            print(f"{tool_call.function.name}: ", output)
+            print(f"{tool_call.function.name}: ", tool_call.function.arguments, "=>", output)
 
             tool_outputs.append(
                 {
