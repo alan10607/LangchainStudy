@@ -1,54 +1,69 @@
-from langchain_openai import ChatOpenAI
-from langchain import hub
-from langchain.agents import create_openai_functions_agent
-from langchain.agents import Tool, AgentExecutor
-from langchain.utilities.serpapi import SerpAPIWrapper
+import json
+import os
+from linebot.v3 import (
+    WebhookHandler
+)
+from linebot.v3.exceptions import (
+    InvalidSignatureError
+)
+from linebot.v3.messaging import (
+    Configuration,
+    ApiClient,
+    MessagingApi,
+    ReplyMessageRequest,
+    TextMessage
+)
+from linebot.v3.webhooks import (
+    MessageEvent,
+    TextMessageContent
+)
+# from lib.langchain_assistant import ChatAI
+from lib.assistant import ChatAI
 
-class ChatAI:
-    def __init__(self):
-        search = SerpAPIWrapper(params = {
-            "engine": "google",
-            "google_domain": "google.com",
-            "gl": "tw",    # location
-            "hl": "zh-TW", # language
-        })
+configuration = Configuration(access_token=os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
+handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
+ai = ChatAI()
 
-        tools = [
-            Tool(
-                name="Google_Search",
-                func=search.run,
-                description= (
-                    "Use this when you need to answer questions about current events or something you don't know."
+def lambda_handler(event, context):
+    @handler.add(MessageEvent, message=TextMessageContent)
+    def handle_message(event):
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            messages = []
+
+            try:
+                if event.message.type != "text":
+                    raise ValueError("Not a text message. Can't reply to you")
+                
+                user_input = event.message.text
+                result = ai.run(user_input)
+                messages.append(TextMessage(text=result))
+            except Exception as e:
+                messages.append(TextMessage(text=f"Error: {e}"))
+                
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=messages
                 )
             )
-        ]
-        # Get the prompt to use - you can modify this!
-        prompt = hub.pull("hwchase17/openai-functions-agent")
-        llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
-        # search = TavilySearchResults()
-        # tools = [search]
-        agent = create_openai_functions_agent(llm, tools, prompt)
-        self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
         
 
+    # get X-Line-Signature header value
+    signature = event["headers"]["x-line-signature"] # must in lower-case or not found
 
+    # get request body as text
+    body = event["body"]
 
-    def run(self, message):
-        result = self.agent_executor.invoke({"input": message})
-        print(result)
-        return result["output"]
-    
-
-if __name__ == "__main__":
-    ai = ChatAI()
-
-    print("Type 'quit' to quit chat")
-    while True:
-        question = input("Question >>> ")
-        if question.lower() == "quit":
-            print("Quit chat...")
-            break
-        
-        result = ai.run(question)
-        print(f"Answer >>>  {result}")
-        print("-----------------\n")
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError as e:
+        return {
+            "statusCode": 502,
+            "body": json.dumps("Invalid Line signature. Please check your channel access token/channel secret. Error: " + str(e))
+        }
+    return {
+        "statusCode": 200,
+        "body": json.dumps("ok")
+    }
