@@ -1,47 +1,32 @@
-from langchain.agents import Tool, initialize_agent
-from langchain.llms import OpenAI
-from langchain.agents import AgentType
-# from langchain.memory import ConversationBufferMemory
+from langchain_openai import ChatOpenAI
+from langchain import hub
+from langchain.agents import create_openai_functions_agent
+from langchain.agents import Tool, AgentExecutor
 from langchain.utilities.serpapi import SerpAPIWrapper
+from dotenv import load_dotenv
+load_dotenv()
 
-class ChatAI:
-    def __init__(self):
-        search = SerpAPIWrapper(params={
-            "engine": "google",
-            "google_domain": "google.com",
-            "gl": "tw",    # location
-            "hl": "zh-TW",  # language
-        })
+search = SerpAPIWrapper(params = {
+    "engine": "google",
+    "google_domain": "google.com",
+    "gl": "tw",    # location
+    "hl": "zh-TW", # language
+})
 
-        tools = [
-            Tool(
-                name="Google Search",
-                func=search.run,
-                description="use this when you need to answer questions about current events or something you don't know"
-            )
-        ]
-        # memory = ConversationBufferMemory(memory_key="chat_history")
-        llm = OpenAI(temperature=0, max_tokens=2048)
+tools = [
+    Tool(
+        name="Google_Search",
+        func=search.run,
+        description= (
+            "Use this when you need to answer questions about current events or something you don't know."
+        )
+    )
+]
+# prompt = hub.pull("hwchase17/openai-functions-agent")
+llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+agent = create_openai_functions_agent(llm, tools)
 
-        self.agent = initialize_agent(
-            tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
-
-        print("Init AI done!")
-
-    def run(self, message):
-        return self.agent.run(message)
-
-
-if __name__ == "__main__":
-    ai = ChatAI()
-
-    print("Type 'quit' to quit chat")
-    while True:
-        question = input("Question >>> ")
-        if question.lower() == "quit":
-            print("Quit chat...")
-            break
-
-        result = ai.run(question)
-        print(f"Answer >>>  {result}")
-        print("-----------------\n")
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
+result1 = agent_executor.invoke({"input": "hi"})
+result = result1["output"]
+print(result)
