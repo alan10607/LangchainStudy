@@ -1,6 +1,5 @@
 from dotenv import load_dotenv
 
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
 from langchain import hub
 from langchain.agents import create_openai_functions_agent
