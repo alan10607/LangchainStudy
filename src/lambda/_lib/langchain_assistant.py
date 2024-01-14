@@ -31,8 +31,6 @@ class ChatAI:
         self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
         
 
-
-
     def run(self, message):
         result = self.agent_executor.invoke({"input": message})
         print(result)

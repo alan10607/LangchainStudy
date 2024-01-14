@@ -2,58 +2,25 @@ import os
 import time
 import json
 from openai import OpenAI
-from langchain.utilities.serpapi import SerpAPIWrapper
-# from langchain.utilities.dalle_image_generator import DallEAPIWrapper
-
-
-class DallE3Wrapper:
-    def __init__(self, client):
-        self.client = client
-
-    def run(self, query):
-        response = self.client.images.generate(
-            model="dall-e-3",
-            prompt=query,
-            size="1024x1024",
-            quality="standard",
-            n=1,
-        )
-
-        image_url = response.data[0].url
-        return image_url
-
-class Functions:
-    def __init__(self, client):
-        self.serpApi = SerpAPIWrapper(params = {
-            "engine": "google",
-            "google_domain": "google.com",
-            "gl": "tw",    # location
-            "hl": "zh-TW", # language
-        })
-
-
-        self.dalle3Api = DallE3Wrapper(client=client)
-
-    def google_search(self, query):
-        return self.serpApi.run(query=query)
-    
-    def dalle3_image_generator(self, query):
-        return self.dalle3Api.run(query=query)
+from lib.functions import Functions
     
 class ChatAI:
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=600)
         self.assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
         self.thread = self.client.beta.threads.create()
-        self.functions = Functions(self.client)
-        self.tool_functions = [self.functions.google_search, self.functions.dalle3_image_generator]
+        func = Functions(self.client)
+        self.tools = [
+            func.google_search, 
+            func.dalle3_image_generator
+        ]
 
     def run(self, question):
-        # 1. Prepare user question message
         client = self.client
         assistant_id = self.assistant_id
         thread = self.thread
 
+        # 1. Prepare user question message
         message = client.beta.threads.messages.create(
             thread_id = thread.id,
             role = "user",
@@ -78,8 +45,7 @@ class ChatAI:
                     thread_id = thread.id,
                     run_id = run.id
                 )
-                if run.status == "in_progress":
-                    time.sleep(1)
+                time.sleep(1)
                 
 
             elif run.status == "requires_action":
@@ -113,7 +79,6 @@ class ChatAI:
         for tool_call in tool_calls:
             function = self.find_matching_function(tool_call.function.name)
             output = self.execute_function(function, tool_call.function.arguments)
-
             print(f"{tool_call.function.name}: ", tool_call.function.arguments, "=>", output)
 
             tool_outputs.append(
@@ -126,17 +91,19 @@ class ChatAI:
         return tool_outputs
 
     def find_matching_function(self, function_name):
-        return next((func for func in self.tool_functions if func.__name__ == function_name))
+        return next((func for func in self.tools if func.__name__ == function_name))
 
     def execute_function(self, function, arguments):
         try:
             return function(**eval(arguments))
         except Exception as e:
             return "Execute function error: " + str(e)
+        
 
-# Instantiate OpenAI client
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
     ai = ChatAI()
 
     print("Type 'quit' to quit chat")
